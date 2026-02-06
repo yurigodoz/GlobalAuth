@@ -1,0 +1,42 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model App {
+  id               Int      @id @default(autoincrement())
+  slug             String   @unique
+  name             String
+  active           Boolean  @default(true)
+  jwtSecret        String
+  accessTokenTtl   String   @default("1h")
+  refreshTokenTtl  String   @default("1d")
+  createdAt        DateTime @default(now())
+
+  users     User[]
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String
+  password  String
+  appId     Int
+  createdAt DateTime @default(now())
+
+  app       App @relation(fields: [appId], references: [id])
+
+  @@unique([email, appId])
+}
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  role      String   @default("admin")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
