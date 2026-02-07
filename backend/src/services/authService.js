@@ -4,6 +4,20 @@ const crypto = require('crypto');
 
 const userRepository = require('../repositories/userRepository');
 const appRepository = require('../repositories/appRepository');
+const refreshTokenRepository = require('../repositories/refreshTokenRepository');
+
+function parseTtlToMs(ttl) {
+  const unit = ttl.slice(-1);
+  const value = parseInt(ttl.slice(0, -1));
+
+  const map = {
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000
+  };
+
+  return value * map[unit];
+}
 
 class AuthService {
 
@@ -49,7 +63,7 @@ class AuthService {
       throw new Error('Credenciais inválidas');
     }
 
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
       {
         userId: user.id,
         app: app.slug
@@ -58,7 +72,18 @@ class AuthService {
       { expiresIn: app.accessTokenTtl }
     );
 
-    return { token, tokenType: 'Bearer' };
+    const refreshToken = crypto.randomBytes(40).toString('hex');
+
+    const refreshExpires = new Date(Date.now() + parseTtlToMs(app.refreshTokenTtl));
+
+    await refreshTokenRepository.create({
+      token: refreshToken,
+      userId: user.id,
+      appId: app.id,
+      expiresAt: refreshExpires
+    });
+
+    return { accessToken, refreshToken };
   }
 
   async requestPasswordReset({ email, appSlug }) {
@@ -111,6 +136,52 @@ class AuthService {
     });
 
     return { message: 'Senha redefinida com sucesso' };
+  }
+
+  async refresh({ refreshToken }) {
+    const stored = await refreshTokenRepository.findByToken(refreshToken);
+
+    if (!stored) {
+      throw new Error('Refresh token inválido');
+    }
+
+    if (stored.expiresAt < new Date()) {
+      await refreshTokenRepository.delete(refreshToken);
+      throw new Error('Refresh token expirado');
+    }
+
+    const app = await appRepository.findById(stored.appId);
+    const user = await userRepository.findById(stored.userId);
+
+    // ROTATION (segurança)
+    await refreshTokenRepository.delete(refreshToken);
+
+    const newRefreshToken = crypto.randomBytes(40).toString('hex');
+
+    const newExpires = new Date(
+      Date.now() + parseTtlToMs(app.refreshTokenTtl)
+    );
+
+    await refreshTokenRepository.create({
+      token: newRefreshToken,
+      userId: user.id,
+      appId: app.id,
+      expiresAt: newExpires
+    });
+
+    const newAccessToken = jwt.sign(
+      {
+        userId: user.id,
+        app: app.slug
+      },
+      app.jwtSecret,
+      { expiresIn: app.accessTokenTtl }
+    );
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken
+    };
   }
 }
 

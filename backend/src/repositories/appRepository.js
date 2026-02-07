@@ -20,7 +20,9 @@ class AppRepository {
         name: true,
         slug: true,
         active: true,
-        createdAt: true
+        createdAt: true,
+        accessTokenTtl: true,
+        refreshTokenTtl: true
       },
       orderBy: { createdAt: 'desc' }
     });

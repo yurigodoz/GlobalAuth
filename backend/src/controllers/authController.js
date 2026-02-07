@@ -66,6 +66,18 @@ class authController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  async refresh(req, res) {
+    try {
+      const { refreshToken } = req.body;
+
+      const data = await authService.refresh({ refreshToken });
+
+      res.json(data);
+    } catch (err) {
+      res.status(401).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = new authController();

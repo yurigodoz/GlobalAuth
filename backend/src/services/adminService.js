@@ -35,7 +35,7 @@ class AdminService {
       throw new Error('Credenciais inválidas');
     }
 
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
       {
         adminId: admin.id,
         role: admin.role,
@@ -45,7 +45,7 @@ class AdminService {
       { expiresIn: jwtConfig.expiresIn }
     );
 
-    return { token, tokenType: 'Bearer' };
+    return { accessToken };
   }
 }
 
