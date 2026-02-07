@@ -3,7 +3,7 @@ const jwtConfig = require('../config/jwt');
 
 async function authMiddleware(req, res, next) {
     const authHeader = req.headers.authorization;
-    const appSlug = req.headers.appSlug;
+    const appSlug = req.headers.appslug;
 
     if (!authHeader || !appSlug) {
         return res.status(401).json({ message: 'Token ou app não informado!' });

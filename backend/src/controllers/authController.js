@@ -38,7 +38,34 @@ class authController {
         valid: true,
         user: req.user
     });
+  }
+
+  async requestPasswordReset(req, res) {
+    try {
+      const { email, app } = req.body;
+
+      const data = await authService.requestPasswordReset({
+        email,
+        appSlug: app
+      });
+
+      res.json(data);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
     }
+  }
+
+  async resetPassword(req, res) {
+    try {
+      const { token, newPassword } = req.body;
+
+      const data = await authService.resetPassword({ token, newPassword });
+
+      res.json(data);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = new authController();

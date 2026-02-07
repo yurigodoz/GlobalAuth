@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 const userRepository = require('../repositories/userRepository');
 const appRepository = require('../repositories/appRepository');
@@ -39,6 +40,10 @@ class AuthService {
       throw new Error('Credenciais inválidas');
     }
 
+    if (!user.active) {
+      throw new Error('Usuário bloqueado');
+    }
+
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       throw new Error('Credenciais inválidas');
@@ -54,6 +59,58 @@ class AuthService {
     );
 
     return { token, tokenType: 'Bearer' };
+  }
+
+  async requestPasswordReset({ email, appSlug }) {
+    /*
+      Apesar desse endpoint retornar exatamente o motivo do erro, o front não deve informar o usuário
+      sobre se a solicitação teve sucesso ou não, para evitar dar pistas para possíveis atacantes.
+      O front deve sempre exibir uma mensagem genérica como "Se as informações estiverem corretas, um email de reset será enviado".
+    */
+    const app = await appRepository.findBySlug(appSlug);
+
+    if (!app) {
+      throw new Error('App inválido');
+    }
+
+    const user = await userRepository.findByEmailAndApp(email, app.id);
+
+    if (!user) {
+      throw new Error('E-mail não encontrado');
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await userRepository.update(user.id, {
+      passwordResetToken: token,
+      passwordResetExpiresAt: expiresAt
+    });
+
+    return { resetToken: token};
+  }
+
+  async resetPassword({ token, newPassword }) {
+    const user = await userRepository.findByResetToken(token);
+
+    if (!user) {
+      throw new Error('Token inválido');
+    }
+
+    if (!user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
+      throw new Error('Token expirado');
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+
+    await userRepository.update(user.id, {
+      password: hash,
+      passwordResetToken: null,
+      passwordResetExpiresAt: null
+    });
+
+    return { message: 'Senha redefinida com sucesso' };
   }
 }
 
