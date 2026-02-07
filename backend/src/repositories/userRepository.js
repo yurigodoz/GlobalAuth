@@ -2,7 +2,15 @@ const prisma = require('../config/prisma');
 
 class UserRepository {
   async create(data) {
-    return prisma.user.create({ data });
+    return prisma.user.create({
+      data,
+      select: {
+        id: true,
+        email: true,
+        active: true,
+        createdAt: true
+      }
+    });
   }
 
   async findByEmailAndApp(email, appId) {

@@ -2,7 +2,15 @@ const prisma = require('../config/prisma');
 
 class AdminRepository {
   async create(data) {
-    return prisma.admin.create({ data });
+    return prisma.admin.create({
+      data,
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true
+      }
+    });
   }
 
   async findByEmail(email) {
