@@ -6,11 +6,12 @@ const appController = require('../controllers/appController');
 const userController = require('../controllers/userController');
 const adminAuthMiddleware = require('../middlewares/adminAuthMiddleware');
 
-router.post('/create', adminController.create);
 router.post('/login', adminController.login);
 
 // Demais rotas protegidas por autenticação de admin
 router.use(adminAuthMiddleware);
+
+router.post('', adminController.create);
 
 // Apps
 router.post('/apps', appController.create);

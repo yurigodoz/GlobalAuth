@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-//const errorHandler = require('./middlewares/errorHandler');
 
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -12,8 +11,6 @@ app.use(express.json());
 
 app.use('/auth', authRoutes);
 app.use('/admin', adminRoutes);
-
-//app.use(errorHandler);
 
 app.get('/health', (req, res) => {
 	res.json({status: 'ok'});

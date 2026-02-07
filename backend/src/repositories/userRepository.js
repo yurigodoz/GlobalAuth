@@ -27,7 +27,14 @@ class UserRepository {
   async update(id, data) {
     return prisma.user.update({
       where: { id: Number(id) },
-      data
+      data,
+      select: {
+        id: true,
+        email: true,
+        active: true,
+        createdAt: true,
+        blockedAt: true
+      }
     });
   }
   

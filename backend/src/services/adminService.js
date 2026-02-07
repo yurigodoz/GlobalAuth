@@ -5,7 +5,7 @@ const adminRepository = require('../repositories/adminRepository');
 const jwtConfig = require('../config/jwt');
 
 class AdminService {
-    async create({ email, password }) {
+    async create({ email, password, role }) {
         const existingUser = await adminRepository.findByEmail(email);
 
         if (existingUser) {
@@ -16,7 +16,8 @@ class AdminService {
 
         const user = await adminRepository.create({
             email,
-            password: passwordHash
+            password: passwordHash,
+            role
         });
 
         return user;

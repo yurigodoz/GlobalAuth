@@ -3,11 +3,16 @@ const adminService = require('../services/adminService');
 class AdminController {
     async create(req, res) {
         try {
-            const { email, password } = req.body;
+            if (req.admin.role !== 'superadmin') {
+                throw new Error('Sem permissão para criar admin');
+            }
+
+            const { email, password, role } = req.body;
 
             const user = await adminService.create({
                 email,
-                password
+                password,
+                role
             });
 
             res.status(201).json(user);
