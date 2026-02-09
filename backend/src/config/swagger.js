@@ -2,9 +2,9 @@
 const swaggerSpec = {
   openapi: '3.0.0',
   info: {
-    title: 'GlobalAuth API',
+    title: 'Godoz Auth API',
     version: '1.0.0',
-    description: 'Documentação da API de autenticação e administração'
+    description: 'Documentação da API de autenticação multi-app com suporte a JWT, refresh tokens, isolamento por aplicação, painel administrativo e arquitetura escalável.'
   },
   components: {
     securitySchemes: {
@@ -65,9 +65,9 @@ const swaggerSpec = {
             'application/json': {
               schema: { $ref: '#/components/schemas/RegisterBody' },
               example: {
-                email: 'yuri@godoz.dev.br',
+                email: 'meu@email.com',
                 password: '123456',
-                app: 'luccare'
+                app: 'meuapp'
               }
             }
           }
@@ -86,9 +86,9 @@ const swaggerSpec = {
             'application/json': {
               schema: { $ref: '#/components/schemas/LoginBody' },
               example: {
-                email: 'yuri@godoz.dev.br',
+                email: 'meu@email.com',
                 password: '123456',
-                app: 'luccare'
+                app: 'meuapp'
               }
             }
           }
@@ -106,7 +106,7 @@ const swaggerSpec = {
         description: 'Verifica se o JWT é válido e retorna informações do usuário autenticado.',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'appSlug', in: 'header', required: false, schema: { type: 'string' }, description: 'Slug da aplicação (ex: luccare)' }
+          { name: 'appSlug', in: 'header', required: false, schema: { type: 'string' }, description: 'Slug da aplicação (ex: meuapp)' }
         ],
         responses: { '200': { description: 'Token válido' }, '401': { description: 'Não autorizado' } }
       }
@@ -121,7 +121,7 @@ const swaggerSpec = {
           content: {
             'application/json': {
               schema: { type: 'object', properties: { email: { type: 'string' }, app: { type: 'string' } }, required: ['email'] },
-              example: { email: 'yuri@godoz.dev.br', app: 'luccare' }
+              example: { email: 'meu@email.com', app: 'meuapp' }
             }
           }
         },
@@ -172,7 +172,7 @@ const swaggerSpec = {
           content: {
             'application/json': {
               schema: { type: 'object', properties: { email: { type: 'string' }, password: { type: 'string' } }, required: ['email','password'] },
-              example: { email: 'yuri@godoz.dev.br', password: '123456' }
+              example: { email: 'meu@email.com', password: '123456' }
             }
           }
         },
@@ -190,7 +190,7 @@ const swaggerSpec = {
           content: {
             'application/json': {
               schema: { type: 'object', properties: { email: { type: 'string' }, password: { type: 'string' }, role: { type: 'string' } }, required: ['email','password','role'] },
-              example: { email: 'yuri@godoz.dev.br', password: '123456', role: 'admin' }
+              example: { email: 'meu@email.com', password: '123456', role: 'admin' }
             }
           }
         },
@@ -208,7 +208,7 @@ const swaggerSpec = {
           content: {
             'application/json': {
               schema: { $ref: '#/components/schemas/AppCreate' },
-              example: { name: 'Luccare', slug: 'luccare', accessTokenTtl: '15m', refreshTokenTtl: '1h' }
+              example: { name: 'Meu App', slug: 'meuapp', accessTokenTtl: '15m', refreshTokenTtl: '1h' }
             }
           }
         },
@@ -236,7 +236,7 @@ const swaggerSpec = {
         summary: 'Listar usuários',
         description: 'Lista usuários filtrando por `app` via query string.',
         security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'app', in: 'query', schema: { type: 'string' }, description: 'slug da aplicação (ex: luccare)' }],
+        parameters: [{ name: 'app', in: 'query', schema: { type: 'string' }, description: 'slug da aplicação (ex: meuapp)' }],
         responses: { '200': { description: 'Lista de usuários' } }
       }
     },
