@@ -83,7 +83,11 @@ class AuthService {
       expiresAt: refreshExpires
     });
 
-    return { accessToken, refreshToken };
+    return {
+      userId: user.id,
+      accessToken,
+      refreshToken
+    };
   }
 
   async requestPasswordReset({ email, appSlug }) {

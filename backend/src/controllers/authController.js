@@ -34,10 +34,7 @@ class authController {
   }
 
   async validateToken(req, res) {
-    return res.json({
-        valid: true,
-        user: req.user
-    });
+    return res.json(req.user);
   }
 
   async requestPasswordReset(req, res) {
