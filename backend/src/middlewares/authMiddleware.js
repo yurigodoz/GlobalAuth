@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-const jwtConfig = require('../config/jwt');
+const appRepository = require('../repositories/appRepository');
+const userRepository = require('../repositories/userRepository');
 
 async function authMiddleware(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -20,16 +21,22 @@ async function authMiddleware(req, res, next) {
     if (scheme !== 'Bearer') {
         return res.status(401).json({ message: 'Scheme inválido!' });
     }
-    
+
     try {
-        const app = await require('../repositories/appRepository').findBySlug(appSlug);
+        const app = await appRepository.findBySlug(appSlug);
 
         if (!app || !app.active) {
             return res.status(401).json({ message: 'App inválido!' });
         }
-        
+
         const decoded = jwt.verify(token, app.jwtSecret);
-        
+
+        const user = await userRepository.findById(decoded.userId);
+
+        if (!user || !user.active) {
+            return res.status(401).json({ message: 'Usuário bloqueado!' });
+        }
+
         req.user = decoded;
 
         next();

@@ -5,16 +5,20 @@ const adminController  = require('../controllers/adminController');
 const appController = require('../controllers/appController');
 const userController = require('../controllers/userController');
 const adminAuthMiddleware = require('../middlewares/adminAuthMiddleware');
+const { loginLimiter } = require('../middlewares/rateLimitMiddleware');
+const validate = require('../middlewares/validateMiddleware');
+const { adminLoginSchema, adminCreateSchema } = require('../validators/adminValidator');
+const { appCreateSchema } = require('../validators/appValidator');
 
-router.post('/login', adminController.login);
+router.post('/login', loginLimiter, validate(adminLoginSchema), adminController.login);
 
 // Demais rotas protegidas por autenticação de admin
 router.use(adminAuthMiddleware);
 
-router.post('', adminController.create);
+router.post('', validate(adminCreateSchema), adminController.create);
 
 // Apps
-router.post('/apps', appController.create);
+router.post('/apps', validate(appCreateSchema), appController.create);
 router.get('/apps', appController.list);
 router.patch('/apps/:id/toggle-active', appController.toggleActive);
 

@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
 const jwtConfig = require('../config/jwt');
+const adminRepository = require('../repositories/adminRepository');
 
-function adminAuthMiddleware(req, res, next) {
+async function adminAuthMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -20,6 +21,12 @@ function adminAuthMiddleware(req, res, next) {
 
     if (!decoded.role) {
         return res.status(403).json({ error: 'Sem permissão' });
+    }
+
+    const admin = await adminRepository.findById(decoded.adminId);
+
+    if (!admin || !admin.active) {
+      return res.status(401).json({ error: 'Admin bloqueado' });
     }
 
     req.admin = decoded;

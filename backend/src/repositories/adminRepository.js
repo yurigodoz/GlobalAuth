@@ -18,6 +18,12 @@ class AdminRepository {
       where: { email }
     });
   }
+
+  async findById(id) {
+    return prisma.admin.findUnique({
+      where: { id }
+    });
+  }
 }
 
 module.exports = new AdminRepository();
