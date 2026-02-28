@@ -12,7 +12,7 @@ class AppService {
 
     const jwtSecret = crypto.randomBytes(64).toString('hex');
 
-    const app = appRepository.create({
+    const app = await appRepository.create({
       name,
       slug,
       active: true,

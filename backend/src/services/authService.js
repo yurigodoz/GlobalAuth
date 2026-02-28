@@ -17,6 +17,10 @@ function parseTtlToMs(ttl) {
     d: 24 * 60 * 60 * 1000
   };
 
+  if (!map[unit] || isNaN(value)) {
+    throw new Error(`TTL inválido: "${ttl}". Use o formato: 30s, 15m, 2h, 7d`);
+  }
+
   return value * map[unit];
 }
 
@@ -99,7 +103,7 @@ class AuthService {
     */
     const app = await appRepository.findBySlug(appSlug);
 
-    if (!app) {
+    if (!app || !app.active) {
       throw new Error('App inválido');
     }
 
@@ -107,6 +111,10 @@ class AuthService {
 
     if (!user) {
       throw new Error('E-mail não encontrado');
+    }
+
+    if (!user.active) {
+      throw new Error('Usuário bloqueado');
     }
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -126,6 +134,10 @@ class AuthService {
 
     if (!user) {
       throw new Error('Token inválido');
+    }
+
+    if (!user.active) {
+      throw new Error('Usuário bloqueado');
     }
 
     if (!user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
@@ -156,7 +168,18 @@ class AuthService {
     }
 
     const app = await appRepository.findById(stored.appId);
+
+    if (!app || !app.active) {
+      await refreshTokenRepository.delete(refreshToken);
+      throw new Error('App inválido');
+    }
+
     const user = await userRepository.findById(stored.userId);
+
+    if (!user || !user.active) {
+      await refreshTokenRepository.delete(refreshToken);
+      throw new Error('Usuário bloqueado');
+    }
 
     // ROTATION (segurança)
     await refreshTokenRepository.delete(refreshToken);

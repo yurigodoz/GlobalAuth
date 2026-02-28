@@ -1,4 +1,3 @@
-const jwt = require('../config/jwt');
 const appService = require('../services/appService');
 
 class AppController {
