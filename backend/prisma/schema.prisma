@@ -16,7 +16,7 @@ model App {
   accessTokenTtl   String   @default("1h")
   refreshTokenTtl  String   @default("1d")
   createdAt        DateTime @default(now())
-  frontendUrl      String?
+  frontendUrl      String
   emailFromAddress String?
   emailFromName    String?
 

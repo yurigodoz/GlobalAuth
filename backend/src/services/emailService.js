@@ -2,10 +2,6 @@ const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-function getFrontendUrl(app) {
-  return app.frontendUrl || process.env.DEFAULT_FRONTEND_URL;
-}
-
 function getFrom(app) {
   const address = app.emailFromAddress || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
   const name = app.emailFromName || app.name;
@@ -30,7 +26,12 @@ async function send({ app, to, subject, html, context }) {
 }
 
 async function sendVerificationEmail(user, app, token) {
-  const link = `${getFrontendUrl(app)}/verificar-email?token=${token}`;
+  if (!app.frontendUrl) {
+    console.error('App sem frontendUrl configurado — e-mail de verificação não enviado', { appSlug: app.slug });
+    return { ok: false, error: 'frontendUrl não configurado para o app' };
+  }
+
+  const link = `${app.frontendUrl}/verificar-email?token=${token}`;
 
   return send({
     app,
@@ -47,7 +48,12 @@ async function sendVerificationEmail(user, app, token) {
 }
 
 async function sendPasswordResetEmail(user, app, token) {
-  const link = `${getFrontendUrl(app)}/redefinir-senha?token=${token}`;
+  if (!app.frontendUrl) {
+    console.error('App sem frontendUrl configurado — e-mail de redefinição de senha não enviado', { appSlug: app.slug });
+    return { ok: false, error: 'frontendUrl não configurado para o app' };
+  }
+
+  const link = `${app.frontendUrl}/redefinir-senha?token=${token}`;
 
   return send({
     app,
