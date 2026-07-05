@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const userRepository = require('../repositories/userRepository');
 const appRepository = require('../repositories/appRepository');
 const refreshTokenRepository = require('../repositories/refreshTokenRepository');
+const emailService = require('./emailService');
 
 function parseTtlToMs(ttl) {
   const unit = ttl.slice(-1);
@@ -26,6 +27,18 @@ function parseTtlToMs(ttl) {
 
 class AuthService {
 
+  async _issueVerificationToken(user) {
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await userRepository.update(user.id, {
+      emailVerificationToken: verificationToken,
+      emailVerificationExpiresAt: verificationExpiresAt
+    });
+
+    return verificationToken;
+  }
+
   async register({ email, password, appSlug }) {
     const app = await appRepository.findBySlug(appSlug);
     if (!app || !app.active) {
@@ -45,7 +58,33 @@ class AuthService {
       appId: app.id
     });
 
+    const verificationToken = await this._issueVerificationToken(user);
+
+    emailService
+      .sendVerificationEmail(user, app, verificationToken)
+      .catch((error) => console.error('Falha ao disparar e-mail de verificação', { userId: user.id, error }));
+
     return user;
+  }
+
+  async verifyEmail({ token }) {
+    const user = await userRepository.findByVerificationToken(token);
+
+    if (!user) {
+      throw new Error('Token inválido');
+    }
+
+    if (!user.emailVerificationExpiresAt || user.emailVerificationExpiresAt < new Date()) {
+      throw new Error('Token expirado');
+    }
+
+    await userRepository.update(user.id, {
+      emailVerifiedAt: new Date(),
+      emailVerificationToken: null,
+      emailVerificationExpiresAt: null
+    });
+
+    return { message: 'E-mail verificado com sucesso' };
   }
 
   async login({ email, password, appSlug }) {
@@ -66,6 +105,12 @@ class AuthService {
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       throw new Error('Credenciais inválidas');
+    }
+
+    if (!user.emailVerifiedAt) {
+      const error = new Error('E-mail não verificado');
+      error.code = 'EMAIL_NOT_VERIFIED';
+      throw error;
     }
 
     const accessToken = jwt.sign(
@@ -95,38 +140,66 @@ class AuthService {
     };
   }
 
-  async requestPasswordReset({ email, appSlug }) {
-    /*
-      Apesar desse endpoint retornar exatamente o motivo do erro, o front não deve informar o usuário
-      sobre se a solicitação teve sucesso ou não, para evitar dar pistas para possíveis atacantes.
-      O front deve sempre exibir uma mensagem genérica como "Se as informações estiverem corretas, um email de reset será enviado".
-    */
+  async resendVerification({ email, appSlug }) {
+    // Resposta sempre genérica, independentemente de o e-mail existir ou já estar verificado
+    // (mesmo padrão de requestPasswordReset — NFR-2, previne enumeração de usuários).
+    const genericResponse = { message: 'Se os dados estiverem corretos, um e-mail de verificação foi enviado' };
+
     const app = await appRepository.findBySlug(appSlug);
 
     if (!app || !app.active) {
       throw new Error('App inválido');
     }
 
-    const user = await userRepository.findByEmailAndApp(email, app.id);
+    try {
+      const user = await userRepository.findByEmailAndApp(email, app.id);
 
-    if (!user) {
-      throw new Error('E-mail não encontrado');
+      if (user && !user.emailVerifiedAt) {
+        const verificationToken = await this._issueVerificationToken(user);
+
+        emailService
+          .sendVerificationEmail(user, app, verificationToken)
+          .catch((error) => console.error('Falha ao disparar e-mail de verificação', { userId: user.id, error }));
+      }
+    } catch (error) {
+      console.error('Falha ao processar reenvio de verificação de e-mail', { appSlug: app.slug, error });
     }
 
-    if (!user.active) {
-      throw new Error('Usuário bloqueado');
+    return genericResponse;
+  }
+
+  async requestPasswordReset({ email, appSlug }) {
+    // Resposta sempre genérica, independentemente de o e-mail existir, estar verificado ou bloqueado
+    // (NFR-2 — previne enumeração de usuários; ver decisions.md ADR-001).
+    const genericResponse = { message: 'Se os dados estiverem corretos, um e-mail de redefinição de senha foi enviado' };
+
+    const app = await appRepository.findBySlug(appSlug);
+
+    if (!app || !app.active) {
+      throw new Error('App inválido');
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
+    try {
+      const user = await userRepository.findByEmailAndApp(email, app.id);
 
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      if (user && user.active) {
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-    await userRepository.update(user.id, {
-      passwordResetToken: token,
-      passwordResetExpiresAt: expiresAt
-    });
+        await userRepository.update(user.id, {
+          passwordResetToken: token,
+          passwordResetExpiresAt: expiresAt
+        });
 
-    return { resetToken: token};
+        emailService
+          .sendPasswordResetEmail(user, app, token)
+          .catch((error) => console.error('Falha ao disparar e-mail de redefinição de senha', { userId: user.id, error }));
+      }
+    } catch (error) {
+      console.error('Falha ao processar solicitação de redefinição de senha', { appSlug: app.slug, error });
+    }
+
+    return genericResponse;
   }
 
   async resetPassword({ token, newPassword }) {
@@ -137,7 +210,8 @@ class AuthService {
     }
 
     if (!user.active) {
-      throw new Error('Usuário bloqueado');
+      // Mesma mensagem do token inválido: não revelar que a conta está bloqueada (NFR-2).
+      throw new Error('Token inválido');
     }
 
     if (!user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {

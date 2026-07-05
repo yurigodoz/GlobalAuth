@@ -29,12 +29,43 @@ class authController {
 
       res.json(data);
     } catch (err) {
+      if (err.code === 'EMAIL_NOT_VERIFIED') {
+        return res.status(403).json({ error: err.message, code: err.code });
+      }
+
       res.status(401).json({ error: err.message });
+    }
+  }
+
+  async verifyEmail(req, res) {
+    try {
+      const { token } = req.body;
+
+      const data = await authService.verifyEmail({ token });
+
+      res.json(data);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
     }
   }
 
   async validateToken(req, res) {
     return res.json(req.user);
+  }
+
+  async resendVerification(req, res) {
+    try {
+      const { email, app } = req.body;
+
+      const data = await authService.resendVerification({
+        email,
+        appSlug: app
+      });
+
+      res.json(data);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
   }
 
   async requestPasswordReset(req, res) {

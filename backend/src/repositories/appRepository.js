@@ -22,7 +22,10 @@ class AppRepository {
         active: true,
         createdAt: true,
         accessTokenTtl: true,
-        refreshTokenTtl: true
+        refreshTokenTtl: true,
+        frontendUrl: true,
+        emailFromAddress: true,
+        emailFromName: true
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -37,7 +40,19 @@ class AppRepository {
   async update(id, data) {
     return prisma.app.update({
       where: { id },
-      data
+      data,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        active: true,
+        createdAt: true,
+        accessTokenTtl: true,
+        refreshTokenTtl: true,
+        frontendUrl: true,
+        emailFromAddress: true,
+        emailFromName: true
+      }
     });
   }
 }

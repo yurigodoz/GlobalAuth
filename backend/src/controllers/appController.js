@@ -4,13 +4,16 @@ class AppController {
 
   async create(req, res) {
     try {
-      const { name, slug, accessTokenTtl, refreshTokenTtl } = req.body;
+      const { name, slug, accessTokenTtl, refreshTokenTtl, frontendUrl, emailFromAddress, emailFromName } = req.body;
 
       const app = await appService.create({
         name,
         slug,
         accessTokenTtl,
-        refreshTokenTtl
+        refreshTokenTtl,
+        frontendUrl,
+        emailFromAddress,
+        emailFromName
        });
 
       res.status(201).json({
@@ -20,7 +23,10 @@ class AppController {
         accessTokenTtl: app.accessTokenTtl,
         refreshTokenTtl: app.refreshTokenTtl,
         active: app.active,
-        createdAt: app.createdAt
+        createdAt: app.createdAt,
+        frontendUrl: app.frontendUrl,
+        emailFromAddress: app.emailFromAddress,
+        emailFromName: app.emailFromName
       });
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -31,6 +37,19 @@ class AppController {
     try {
       const apps = await appService.list();
       res.json(apps);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async updateConfig(req, res) {
+    try {
+      const { id } = req.params;
+      const { frontendUrl, emailFromAddress, emailFromName } = req.body;
+
+      const app = await appService.updateConfig(id, { frontendUrl, emailFromAddress, emailFromName });
+
+      res.json(app);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

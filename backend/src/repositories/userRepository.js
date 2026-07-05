@@ -51,6 +51,12 @@ class UserRepository {
       where: { passwordResetToken: token }
     });
   }
+
+  async findByVerificationToken(token) {
+    return prisma.user.findFirst({
+      where: { emailVerificationToken: token }
+    });
+  }
 }
 
 module.exports = new UserRepository();

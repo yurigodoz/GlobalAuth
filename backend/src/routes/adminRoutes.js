@@ -8,7 +8,7 @@ const adminAuthMiddleware = require('../middlewares/adminAuthMiddleware');
 const { loginLimiter } = require('../middlewares/rateLimitMiddleware');
 const validate = require('../middlewares/validateMiddleware');
 const { adminLoginSchema, adminCreateSchema } = require('../validators/adminValidator');
-const { appCreateSchema } = require('../validators/appValidator');
+const { appCreateSchema, appUpdateSchema } = require('../validators/appValidator');
 
 router.post('/login', loginLimiter, validate(adminLoginSchema), adminController.login);
 
@@ -20,6 +20,7 @@ router.post('', validate(adminCreateSchema), adminController.create);
 // Apps
 router.post('/apps', validate(appCreateSchema), appController.create);
 router.get('/apps', appController.list);
+router.patch('/apps/:id', validate(appUpdateSchema), appController.updateConfig);
 router.patch('/apps/:id/toggle-active', appController.toggleActive);
 
 // Users

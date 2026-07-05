@@ -3,7 +3,7 @@ const crypto = require('crypto');
 
 class AppService {
 
-  async create({ name, slug, accessTokenTtl, refreshTokenTtl }) {
+  async create({ name, slug, accessTokenTtl, refreshTokenTtl, frontendUrl, emailFromAddress, emailFromName }) {
     const existing = await appRepository.findBySlug(slug);
 
     if (existing) {
@@ -18,7 +18,10 @@ class AppService {
       active: true,
       jwtSecret,
       accessTokenTtl,
-      refreshTokenTtl
+      refreshTokenTtl,
+      frontendUrl,
+      emailFromAddress,
+      emailFromName
     });
 
     return app;
@@ -28,6 +31,21 @@ class AppService {
     const apps = await appRepository.findAll();
     
     return { apps }
+  }
+
+  async updateConfig(id, { frontendUrl, emailFromAddress, emailFromName }) {
+    const app = await appRepository.findById(Number(id));
+
+    if (!app) {
+      throw new Error('App não encontrado');
+    }
+
+    const data = {};
+    if (frontendUrl !== undefined) data.frontendUrl = frontendUrl;
+    if (emailFromAddress !== undefined) data.emailFromAddress = emailFromAddress;
+    if (emailFromName !== undefined) data.emailFromName = emailFromName;
+
+    return appRepository.update(app.id, data);
   }
 
   async toggleActive(id) {

@@ -46,9 +46,12 @@ const swaggerSpec = {
           name: { type: 'string' },
           slug: { type: 'string' },
           accessTokenTtl: { type: 'string', description: 'Tempo de vida do access token (ex: 15m)' },
-          refreshTokenTtl: { type: 'string', description: 'Tempo de vida do refresh token (ex: 1h)' }
+          refreshTokenTtl: { type: 'string', description: 'Tempo de vida do refresh token (ex: 1h)' },
+          frontendUrl: { type: 'string', description: 'URL base do frontend do app (usada para montar links de verificação de e-mail/reset de senha)' },
+          emailFromAddress: { type: 'string', description: 'Endereço remetente dos e-mails deste app (fallback: RESEND_FROM_EMAIL)' },
+          emailFromName: { type: 'string', description: 'Nome do remetente dos e-mails deste app (fallback: name)' }
         },
-        required: ['name','slug']
+        required: ['name','slug','frontendUrl']
       }
     }
   },
@@ -111,11 +114,45 @@ const swaggerSpec = {
         responses: { '200': { description: 'Token válido' }, '401': { description: 'Não autorizado' } }
       }
     },
+    '/auth/verify-email': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Verificar e-mail',
+        description: 'Confirma o e-mail do usuário usando o token enviado por e-mail no cadastro.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { type: 'object', properties: { token: { type: 'string' } }, required: ['token'] },
+              example: { token: '<token recebido por e-mail>' }
+            }
+          }
+        },
+        responses: { '200': { description: 'E-mail verificado' }, '400': { description: 'Token inválido ou expirado' } }
+      }
+    },
+    '/auth/resend-verification': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Reenviar e-mail de verificação',
+        description: 'Gera um novo token de verificação (invalidando o anterior) e reenvia o e-mail, se o usuário existir e ainda não estiver verificado. A resposta é sempre uma mensagem genérica, independentemente de o e-mail existir ou já estar verificado, para evitar enumeração de usuários.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { type: 'object', properties: { email: { type: 'string' }, app: { type: 'string' } }, required: ['email', 'app'] },
+              example: { email: 'meu@email.com', app: 'meuapp' }
+            }
+          }
+        },
+        responses: { '200': { description: 'Mensagem genérica de confirmação' }, '400': { description: 'Erro' } }
+      }
+    },
     '/auth/request-password-reset': {
       post: {
         tags: ['Auth'],
         summary: 'Solicitar reset de senha',
-        description: 'Envia instruções de reset por email (se o usuário existir).',
+        description: 'Envia o link de reset por e-mail (se o usuário existir e estiver ativo). A resposta é sempre uma mensagem genérica, independentemente de o e-mail existir, para evitar enumeração de usuários — nunca contém o token.',
         requestBody: {
           required: true,
           content: {
@@ -125,7 +162,7 @@ const swaggerSpec = {
             }
           }
         },
-        responses: { '200': { description: 'Instruções enviadas' }, '400': { description: 'Erro' } }
+        responses: { '200': { description: 'Mensagem genérica de confirmação' }, '400': { description: 'Erro' } }
       }
     },
     '/auth/reset-password': {
@@ -208,7 +245,7 @@ const swaggerSpec = {
           content: {
             'application/json': {
               schema: { $ref: '#/components/schemas/AppCreate' },
-              example: { name: 'Meu App', slug: 'meuapp', accessTokenTtl: '15m', refreshTokenTtl: '1h' }
+              example: { name: 'Meu App', slug: 'meuapp', accessTokenTtl: '15m', refreshTokenTtl: '1h', frontendUrl: 'https://meuapp.com', emailFromAddress: 'naoresponda@meuapp.com', emailFromName: 'Meu App' }
             }
           }
         },
@@ -219,6 +256,32 @@ const swaggerSpec = {
         summary: 'Listar apps',
         security: [{ bearerAuth: [] }],
         responses: { '200': { description: 'Lista de apps' } }
+      }
+    },
+    '/admin/apps/{id}': {
+      patch: {
+        tags: ['Apps'],
+        summary: 'Atualizar configuração de e-mail/frontend do app',
+        description: 'Atualiza `frontendUrl`, `emailFromAddress` e/ou `emailFromName` de um app já existente. Todos os campos são opcionais (atualização parcial).',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  frontendUrl: { type: 'string' },
+                  emailFromAddress: { type: 'string' },
+                  emailFromName: { type: 'string' }
+                }
+              },
+              example: { frontendUrl: 'https://meuapp.com', emailFromAddress: 'naoresponda@meuapp.com', emailFromName: 'Meu App' }
+            }
+          }
+        },
+        responses: { '200': { description: 'App atualizado' }, '400': { description: 'Erro' } }
       }
     },
     '/admin/apps/{id}/toggle-active': {
