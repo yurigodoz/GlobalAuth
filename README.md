@@ -1,9 +1,13 @@
 🔐 Godoz Auth Service
 =====================
 
-Serviço central de autenticação multi-app com suporte a JWT, refresh tokens, isolamento por aplicação, painel administrativo e arquitetura escalável.
+**Portfólio:** [godoz.net](https://godoz.net) · **Apps que usam este serviço:** [Luccare](https://luccare.godoz.dev.br) · [Bandapp](https://bandapp.godoz.dev.br) · [Agiotapp](https://agiotapp.godoz.dev.br)
+
+Autenticação como serviço para múltiplas aplicações, com JWT, refresh tokens rotativos, isolamento por aplicação, painel administrativo e arquitetura escalável.
 
 Este projeto foi criado com foco em estudo, boas práticas de segurança e reutilização entre múltiplos sistemas (web e mobile).
+
+> ⚠️ **Isto não é SSO.** O que é compartilhado entre os apps é a **infraestrutura** de autenticação, não a conta do usuário. Cada aplicação é um tenant com a **sua própria base de usuários**: um cadastro criado no app A não existe no app B, e um login não dá acesso aos outros apps. O modelo é o mesmo dos *user pools* do AWS Cognito ou dos *tenants* do Auth0 — um serviço só, cadastros separados.
 
 📦 Stack
 ========
@@ -28,20 +32,20 @@ Arquitetura:
 🎯 Objetivo
 ===========
 
-Centralizar autenticação para múltiplos apps independentes, mantendo:
+Concentrar a **implementação** de autenticação em um único serviço, reutilizável por vários apps independentes, sem misturar os usuários de um com os do outro. Objetivos:
 
-*   isolamento por aplicação
+*   isolamento total por aplicação (inclusive da base de usuários)
     
 *   segurança forte
     
 *   escalabilidade
     
-*   reutilização de código
+*   reutilização de código — escrever autenticação uma vez, não uma por projeto
     
 
 Cada app possui:
 
-*   usuários próprios
+*   base de usuários própria (cadastro e login independentes)
     
 *   JWT secret própria
     
@@ -53,22 +57,22 @@ Cada app possui:
 🧠 Conceitos principais
 =======================
 
-Multi-App Authentication
-------------------------
+Multi-App Authentication (multi-tenant, não SSO)
+------------------------------------------------
 
-O sistema permite vários produtos independentes:
+O sistema atende vários produtos independentes — hoje:
 
 *   Luccare
     
-*   Finance
+*   Bandapp
     
-*   Tasks
-    
-*   etc.
+*   Agiotapp
     
 
-Cada app tem:
+Cada app é um **tenant** e tem:
 
+*   base de usuários própria
+    
 *   jwtSecret próprio
     
 *   accessTokenTtl
@@ -76,7 +80,17 @@ Cada app tem:
 *   refreshTokenTtl
     
 
-Isso garante isolamento entre aplicações.
+Isso garante isolamento completo entre aplicações. O login sempre exige o par `email + senha` **dentro de um app específico** — o mesmo e-mail pode existir em dois apps como dois usuários distintos, com senhas distintas.
+
+### Por que não é SSO
+
+| | SSO | GlobalAuth |
+| --- | --- | --- |
+| Conta do usuário | uma, compartilhada | uma por aplicação |
+| Sessão | vale em todos os apps | vale só no app onde foi criada |
+| O que é compartilhado | a identidade | o serviço/infraestrutura |
+
+Suportar SSO de verdade seria uma evolução possível (identidade única atravessando apps), mas não é o modelo atual.
 
 Tipos de usuários
 -----------------
@@ -119,6 +133,12 @@ Gerenciam o sistema:
     
 *   Isolamento completo entre apps
     
+*   Verificação obrigatória de e-mail antes do primeiro login
+    
+*   Rate limit (limite mais rígido nas rotas de login)
+    
+*   Validação de payload com Zod em todas as rotas
+    
 
 Permite:
 
@@ -137,7 +157,18 @@ Registro
 
 `   POST /auth/register   `
 
-Cria usuário dentro de um app específico.
+Cria usuário dentro de um app específico e dispara o e-mail de verificação.
+
+Verificação de e-mail
+---------------------
+
+`POST /auth/verify-email`
+
+Confirma a conta pelo token recebido por e-mail. Reenvio:
+
+`POST /auth/resend-verification`
+
+O login é bloqueado enquanto o e-mail não for verificado.
 
 Login
 -----
@@ -247,7 +278,7 @@ Listar usuários por app
 
 Disponível em:
 
-`http://localhost:3000/docs`
+`http://localhost:3002/docs`
 
 Permite:
 
@@ -264,7 +295,16 @@ Permite:
 .env
 ----
 
-`PORT=3000` `BASE_URL="http://localhost:3000"` `DATABASE_URL=postgresql://USUARIO:SENHA@localhost:5432/BANCO` `JWT_SECRET=chave-secreta`
+```env
+PORT=3002
+DATABASE_URL=postgresql://USUARIO:SENHA@localhost:5432/BANCO
+JWT_SECRET=chave-secreta          # usado no token de admin; cada app tem o seu próprio secret no banco
+TRUST_PROXY=1                     # atrás de proxy reverso (Nginx), para o rate limit ler o IP real
+RESEND_API_KEY=re_xxxxxxxx        # envio de e-mails (verificação e reset de senha)
+RESEND_FROM_EMAIL=nao-responda@seudominio.com
+```
+
+> O remetente e a URL de destino dos e-mails também podem ser definidos **por app** (`emailFromName`, `emailFromAddress` e `frontendUrl`). O `frontendUrl` é obrigatório para que o e-mail de verificação seja enviado — sem ele, o envio é ignorado com log de erro.
 
 🚀 Como rodar o projeto
 =======================
@@ -294,17 +334,11 @@ Arquitetura pronta para:
     
 *   Painel admin (frontend)
     
-*   Envio automático de email
-    
-*   Verificação de email
-    
 *   2FA
     
 *   Auditoria de login
     
-*   Rate limit
-    
-*   RSA keys
+*   RSA keys (assinatura assimétrica)
     
 
 🎯 Status atual
@@ -312,7 +346,7 @@ Arquitetura pronta para:
 
 Este serviço já é utilizável em produção para:
 
-*   autenticação multi-app
+*   autenticação multi-app com bases de usuário isoladas
     
 *   apps web
     

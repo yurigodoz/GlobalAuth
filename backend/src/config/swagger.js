@@ -4,7 +4,7 @@ const swaggerSpec = {
   info: {
     title: 'Godoz Auth API',
     version: '1.0.0',
-    description: 'Documentação da API de autenticação multi-app com suporte a JWT, refresh tokens, isolamento por aplicação, painel administrativo e arquitetura escalável.'
+    description: 'Documentação da API de autenticação multi-app: um serviço, várias aplicações, cada uma com base de usuários, JWT secret e TTLs próprios (não é SSO — contas não são compartilhadas entre apps). Inclui refresh tokens rotativos, verificação de e-mail, reset de senha e painel administrativo.'
   },
   components: {
     securitySchemes: {
