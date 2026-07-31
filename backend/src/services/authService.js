@@ -25,6 +25,21 @@ function parseTtlToMs(ttl) {
   return value * map[unit];
 }
 
+// Janela em que um refresh token já rotacionado ainda é aceito (replay legítimo
+// de outra aba/dispositivo ou resposta perdida). Configurável via env.
+const REFRESH_ROTATION_GRACE_MS = parseInt(
+  process.env.REFRESH_ROTATION_GRACE_MS || '60000',
+  10
+);
+
+// Erro de autenticação (status 401) — o controller usa err.status pra
+// diferenciar rejeição de token (401) de falha interna (503).
+function authError(message) {
+  const error = new Error(message);
+  error.status = 401;
+  return error;
+}
+
 class AuthService {
 
   async _issueVerificationToken(user) {
@@ -229,35 +244,78 @@ class AuthService {
     return { message: 'Senha redefinida com sucesso' };
   }
 
+  _signAccessToken(user, app) {
+    return jwt.sign(
+      {
+        userId: user.id,
+        app: app.slug
+      },
+      app.jwtSecret,
+      { expiresIn: app.accessTokenTtl }
+    );
+  }
+
   async refresh({ refreshToken }) {
     const stored = await refreshTokenRepository.findByToken(refreshToken);
 
     if (!stored) {
-      throw new Error('Refresh token inválido');
+      throw authError('Refresh token inválido');
+    }
+
+    // Token já rotacionado: pode ser replay legítimo (outra aba/dispositivo
+    // usou o mesmo token, ou a resposta anterior se perdeu no caminho).
+    // Dentro da janela de tolerância, devolve o sucessor já emitido em vez
+    // de derrubar a sessão.
+    if (stored.replacedByToken) {
+      const withinGrace =
+        stored.rotatedAt &&
+        Date.now() - stored.rotatedAt.getTime() < REFRESH_ROTATION_GRACE_MS;
+
+      const successor = withinGrace
+        ? await refreshTokenRepository.findByToken(stored.replacedByToken)
+        : null;
+
+      if (!successor) {
+        // Fora da janela (ou sucessor removido): possível reuso indevido.
+        await refreshTokenRepository.delete(refreshToken);
+        throw authError('Refresh token inválido');
+      }
+
+      const app = await appRepository.findById(stored.appId);
+      const user = await userRepository.findById(stored.userId);
+
+      if (!app || !app.active || !user || !user.active) {
+        throw authError('Refresh token inválido');
+      }
+
+      return {
+        accessToken: this._signAccessToken(user, app),
+        refreshToken: successor.token
+      };
     }
 
     if (stored.expiresAt < new Date()) {
       await refreshTokenRepository.delete(refreshToken);
-      throw new Error('Refresh token expirado');
+      throw authError('Refresh token expirado');
     }
 
     const app = await appRepository.findById(stored.appId);
 
     if (!app || !app.active) {
       await refreshTokenRepository.delete(refreshToken);
-      throw new Error('App inválido');
+      throw authError('App inválido');
     }
 
     const user = await userRepository.findById(stored.userId);
 
     if (!user || !user.active) {
       await refreshTokenRepository.delete(refreshToken);
-      throw new Error('Usuário bloqueado');
+      throw authError('Usuário bloqueado');
     }
 
-    // ROTATION (segurança)
-    await refreshTokenRepository.delete(refreshToken);
-
+    // ROTATION com janela de tolerância: o token antigo não é apagado
+    // imediatamente — fica marcado como rotacionado (replacedByToken) e
+    // segue aceito por REFRESH_ROTATION_GRACE_MS no branch acima.
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
 
     const newExpires = new Date(
@@ -271,17 +329,15 @@ class AuthService {
       expiresAt: newExpires
     });
 
-    const newAccessToken = jwt.sign(
-      {
-        userId: user.id,
-        app: app.slug
-      },
-      app.jwtSecret,
-      { expiresIn: app.accessTokenTtl }
-    );
+    await refreshTokenRepository.markRotated(refreshToken, newRefreshToken);
+
+    // Limpeza oportunista dos tokens rotacionados fora da janela (best effort).
+    refreshTokenRepository
+      .deleteRotatedBefore(new Date(Date.now() - REFRESH_ROTATION_GRACE_MS))
+      .catch(() => {});
 
     return {
-      accessToken: newAccessToken,
+      accessToken: this._signAccessToken(user, app),
       refreshToken: newRefreshToken
     };
   }

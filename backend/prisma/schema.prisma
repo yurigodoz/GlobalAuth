@@ -53,12 +53,15 @@ model Admin {
 }
 
 model RefreshToken {
-  id        Int      @id @default(autoincrement())
-  token     String   @unique
-  userId    Int
-  appId     Int
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id              Int       @id @default(autoincrement())
+  token           String    @unique
+  userId          Int
+  appId           Int
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  // Rotação com janela de tolerância: token do sucessor e momento da rotação
+  replacedByToken String?
+  rotatedAt       DateTime?
 
-  user      User @relation(fields: [userId], references: [id])
+  user            User @relation(fields: [userId], references: [id])
 }

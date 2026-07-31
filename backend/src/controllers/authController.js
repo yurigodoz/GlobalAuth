@@ -103,7 +103,13 @@ class authController {
 
       res.json(data);
     } catch (err) {
-      res.status(401).json({ error: err.message });
+      // 401 só para rejeição real de token (err.status definido no service);
+      // falha inesperada (ex: banco fora) responde 503 pra que os clients
+      // NÃO encerrem a sessão por um problema temporário do servidor.
+      if (!err.status) {
+        console.error('Erro inesperado no refresh:', err);
+      }
+      res.status(err.status || 503).json({ error: err.message });
     }
   }
 }
